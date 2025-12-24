@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Automattic\WordpressMcp\Tools;
 
 use Automattic\WordpressMcp\Core\RegisterMcpTool;
+use Automattic\WordpressMcp\Utils\MarkdownToBlocks;
 
 /**
  * Class for managing MCP Pages Tools functionality.
@@ -58,7 +59,7 @@ class McpPagesTools {
 		new RegisterMcpTool(
 			array(
 				'name'        => 'wp_add_page',
-				'description' => 'Add a new WordPress page',
+				'description' => 'Add a new WordPress page. Content can be provided in Markdown format (will be automatically converted to Gutenberg blocks) or Gutenberg blocks format.',
 				'type'        => 'create',
 				'rest_alias'  => array(
 					'route'                   => '/wp/v2/pages',
@@ -70,7 +71,7 @@ class McpPagesTools {
 							),
 							'content' => array(
 								'type'        => 'string',
-								'description' => 'The content of the page in a valid Guttenberg block format',
+								'description' => 'The content of the page. Can be provided in Markdown format (will be automatically converted to Gutenberg blocks) or Gutenberg blocks format (JSON string with blocks array).',
 							),
 							'excerpt' => array(
 								'type' => 'string',
@@ -89,6 +90,7 @@ class McpPagesTools {
 							'content',
 						),
 					),
+					'preCallback'             => array( $this, 'wp_add_page_pre_callback' ),
 				),
 				'annotations' => array(
 					'title'           => 'Add Page',
@@ -103,11 +105,12 @@ class McpPagesTools {
 		new RegisterMcpTool(
 			array(
 				'name'        => 'wp_update_page',
-				'description' => 'Update a WordPress page by ID',
+				'description' => 'Update a WordPress page by ID. Content can be provided in Markdown format (will be automatically converted to Gutenberg blocks) or Gutenberg blocks format.',
 				'type'        => 'update',
 				'rest_alias'  => array(
 					'route'  => '/wp/v2/pages/(?P<id>[\d]+)',
 					'method' => 'PUT',
+					'preCallback' => array( $this, 'wp_update_page_pre_callback' ),
 				),
 				'annotations' => array(
 					'title'           => 'Update Page',
@@ -136,6 +139,50 @@ class McpPagesTools {
 					'openWorldHint'   => false,
 				),
 			)
+		);
+	}
+
+	/**
+	 * Pre-callback for wp_add_page to convert Markdown to Gutenberg blocks.
+	 *
+	 * @param array $args The arguments.
+	 * @return array The processed arguments.
+	 */
+	public function wp_add_page_pre_callback( array $args ): array {
+		if ( isset( $args['content'] ) && ! empty( $args['content'] ) ) {
+			$content = $args['content'];
+			
+			// Check if content is already in Gutenberg blocks format
+			if ( ! MarkdownToBlocks::is_blocks_format( $content ) ) {
+				// Convert Markdown to Gutenberg blocks
+				$args['content'] = MarkdownToBlocks::convert( $content );
+			}
+		}
+
+		return array(
+			'args' => $args,
+		);
+	}
+
+	/**
+	 * Pre-callback for wp_update_page to convert Markdown to Gutenberg blocks.
+	 *
+	 * @param array $args The arguments.
+	 * @return array The processed arguments.
+	 */
+	public function wp_update_page_pre_callback( array $args ): array {
+		if ( isset( $args['content'] ) && ! empty( $args['content'] ) ) {
+			$content = $args['content'];
+			
+			// Check if content is already in Gutenberg blocks format
+			if ( ! MarkdownToBlocks::is_blocks_format( $content ) ) {
+				// Convert Markdown to Gutenberg blocks
+				$args['content'] = MarkdownToBlocks::convert( $content );
+			}
+		}
+
+		return array(
+			'args' => $args,
 		);
 	}
 }

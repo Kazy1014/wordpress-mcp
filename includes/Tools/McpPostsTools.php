@@ -4,6 +4,7 @@ declare( strict_types=1 );
 namespace Automattic\WordpressMcp\Tools;
 
 use Automattic\WordpressMcp\Core\RegisterMcpTool;
+use Automattic\WordpressMcp\Utils\MarkdownToBlocks;
 
 /**
  * Class for managing MCP Posts Tools functionality.
@@ -58,7 +59,7 @@ class McpPostsTools {
 		new RegisterMcpTool(
 			array(
 				'name'        => 'wp_add_post',
-				'description' => 'Add a new WordPress post',
+				'description' => 'Add a new WordPress post. Content can be provided in Markdown format (will be automatically converted to Gutenberg blocks) or Gutenberg blocks format.',
 				'type'        => 'create',
 				'rest_alias'  => array(
 					'route'                   => '/wp/v2/posts',
@@ -70,7 +71,7 @@ class McpPostsTools {
 							),
 							'content' => array(
 								'type'        => 'string',
-								'description' => 'The content of the post in a valid Guttenberg block format',
+								'description' => 'The content of the post. Can be provided in Markdown format (will be automatically converted to Gutenberg blocks) or Gutenberg blocks format (JSON string with blocks array).',
 							),
 							'excerpt' => array(
 								'type' => 'string',
@@ -81,6 +82,7 @@ class McpPostsTools {
 							'content',
 						),
 					),
+					'preCallback'             => array( $this, 'wp_add_post_pre_callback' ),
 				),
 				'annotations' => array(
 					'title'           => 'Add Post',
@@ -95,11 +97,12 @@ class McpPostsTools {
 		new RegisterMcpTool(
 			array(
 				'name'        => 'wp_update_post',
-				'description' => 'Update a WordPress post by ID',
+				'description' => 'Update a WordPress post by ID. Content can be provided in Markdown format (will be automatically converted to Gutenberg blocks) or Gutenberg blocks format.',
 				'type'        => 'update',
 				'rest_alias'  => array(
 					'route'  => '/wp/v2/posts/(?P<id>[\d]+)',
 					'method' => 'PUT',
+					'preCallback' => array( $this, 'wp_update_post_pre_callback' ),
 				),
 				'annotations' => array(
 					'title'           => 'Update Post',
@@ -284,6 +287,50 @@ class McpPostsTools {
 					'openWorldHint'   => false,
 				),
 			)
+		);
+	}
+
+	/**
+	 * Pre-callback for wp_add_post to convert Markdown to Gutenberg blocks.
+	 *
+	 * @param array $args The arguments.
+	 * @return array The processed arguments.
+	 */
+	public function wp_add_post_pre_callback( array $args ): array {
+		if ( isset( $args['content'] ) && ! empty( $args['content'] ) ) {
+			$content = $args['content'];
+			
+			// Check if content is already in Gutenberg blocks format
+			if ( ! MarkdownToBlocks::is_blocks_format( $content ) ) {
+				// Convert Markdown to Gutenberg blocks
+				$args['content'] = MarkdownToBlocks::convert( $content );
+			}
+		}
+
+		return array(
+			'args' => $args,
+		);
+	}
+
+	/**
+	 * Pre-callback for wp_update_post to convert Markdown to Gutenberg blocks.
+	 *
+	 * @param array $args The arguments.
+	 * @return array The processed arguments.
+	 */
+	public function wp_update_post_pre_callback( array $args ): array {
+		if ( isset( $args['content'] ) && ! empty( $args['content'] ) ) {
+			$content = $args['content'];
+			
+			// Check if content is already in Gutenberg blocks format
+			if ( ! MarkdownToBlocks::is_blocks_format( $content ) ) {
+				// Convert Markdown to Gutenberg blocks
+				$args['content'] = MarkdownToBlocks::convert( $content );
+			}
+		}
+
+		return array(
+			'args' => $args,
 		);
 	}
 }
